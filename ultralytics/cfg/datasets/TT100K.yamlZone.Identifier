@@ -1,0 +1,4 @@
+[ZoneTransfer]
+ZoneId=3
+ReferrerUrl=http://10.183.16.101:8888/lab/workspaces/auto-Z/tree/yolov13/ultralytics/cfg/datasets
+HostUrl=http://10.183.16.101:8888/files/yolov13/ultralytics/cfg/datasets/TT100K.yaml?_xsrf=2%7Cc63d05ec%7C7812812b35a2b9fd10eaea117a0c4e35%7C1779103085

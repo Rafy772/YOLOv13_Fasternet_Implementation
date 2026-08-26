@@ -1,0 +1,77 @@
+# YOLOv13-fasterall + P2 detection head (strides 4/8/16/32).
+#
+# Adds a 160x160 pyramid level for small objects on top of the maximally
+# PConv-ized config (FasterNet backbone + C3k2_Faster head blocks +
+# DetectFaster). The P2 branch: upsample the P3 tunnel (23), concat with the
+# backbone P2 stage (layer 2), C3k2_Faster block (26, Detect input), then a
+# strided conv rebuilds P3 through a second FullPAD_Tunnel with the HyperACE
+# 1x1 (22). All layer indices after 23 are shifted by +7 vs yolov13-fasterall.
+#
+# Notes:
+#   - P2 gets no FullPAD_Tunnel of its own: HyperACE correlation is computed
+#     from P3-P5 taps; carrying its output to 160x160 costs an extra upsample
+#     + 1x1 (~0.2 GFLOPs) for guidance that would be pure extrapolation.
+#   - DetectFaster matters most here: a plain Detect at P2 adds ~0.9 GFLOPs
+#     more (dense 3x3s at 160x160). Swap the last line to Detect to ablate.
+#   - Detection-layer cost scales with nc (cv3 width = max(ch[0], min(nc,100))),
+#     so single-class datasets pay far less than these nc=80 reference numbers.
+
+nc: 80 # number of classes
+scales: # model compound scaling constants
+  # [depth, width, max_channels]
+  n: [0.50, 0.25, 1024]   # Nano
+  s: [0.50, 0.50, 1024]   # Small
+  l: [1.00, 1.00, 512]    # Large
+  x: [1.00, 1.50, 512]    # Extra Large
+
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv,  [64, 3, 2]] # 0-P1/2
+  - [-1, 1, Conv,  [128, 3, 2, 1, 2]] # 1-P2/4
+  - [-1, 2, FasterNetBlock, [128]] # 2
+  - [-1, 1, Conv,  [256, 3, 2, 1, 4]] # 3-P3/8
+  - [-1, 2, C3k2_Faster, [512, False, 0.25]] # 4 (partial-channel FasterNet stage)
+  - [-1, 1, DSConv,  [512, 3, 2]] # 5-P4/16
+  - [-1, 2, FasterNetBlock, [512]] # 6
+  - [-1, 1, DSConv,  [1024, 3, 2]] # 7-P5/32
+  - [-1, 2, FasterNetBlock, [1024]] # 8
+
+head:
+  - [[4, 6, 8], 2, HyperACE, [512, 8, True, True, 0.5, 1, "both"]]
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [ 9, 1, DownsampleConv, []]
+  - [[6, 9], 1, FullPAD_Tunnel, []]  #12
+  - [[4, 10], 1, FullPAD_Tunnel, []]  #13
+  - [[8, 11], 1, FullPAD_Tunnel, []] #14
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 12], 1, Concat, [1]] # cat backbone P4
+  - [-1, 2, C3k2_Faster, [512, True]] # 17
+  - [[-1, 9], 1, FullPAD_Tunnel, []]  #18
+
+  - [17, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 13], 1, Concat, [1]] # cat backbone P3
+  - [-1, 2, C3k2_Faster, [256, True]] # 21
+  - [10, 1, Conv, [256, 1, 1]] #22
+  - [[21, 22], 1, FullPAD_Tunnel, []]  #23
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]] #24 P3 tunnel -> 160x160
+  - [[-1, 2], 1, Concat, [1]] #25 cat backbone P2
+  - [-1, 2, C3k2_Faster, [128, True]] # 26 (P2/4-small, Detect input)
+
+  - [-1, 1, Conv, [128, 3, 2]] #27 P2 -> 80x80
+  - [[-1, 23], 1, Concat, [1]] #28 cat P3 tunnel
+  - [-1, 2, C3k2_Faster, [256, True]] # 29
+  - [[-1, 22], 1, FullPAD_Tunnel, []] #30 (P3/8-small)
+
+  - [-1, 1, Conv, [256, 3, 2]] #31
+  - [[-1, 18], 1, Concat, [1]] # cat head P4
+  - [-1, 2, C3k2_Faster, [512, True]] # 33
+  - [[-1, 9], 1, FullPAD_Tunnel, []]  #34 (P4/16-medium)
+
+  - [33, 1, Conv, [512, 3, 2]] #35
+  - [[-1, 14], 1, Concat, [1]] # cat head P5
+  - [-1, 2, C3k2_Faster, [1024, True]] # 37
+  - [[-1, 11], 1, FullPAD_Tunnel, []]  #38 (P5/32-large)
+
+  - [[26, 30, 34, 38], 1, DetectFaster, [nc]] # Detect(P2, P3, P4, P5)

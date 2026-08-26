@@ -1,0 +1,14 @@
+path: /home/rafy/yolov13/VisDrone2019
+
+train: train/images
+val: valid/images
+
+nc: 10
+names: ['awning-tricycle', 'bicycle', 'bus', 'car', 'motor', 'pedestrian', 'people', 'tricycle', 'truck', 'van']
+
+roboflow:
+  workspace: uogolanrewaju
+  project: visdrone2019-det
+  version: 4
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/uogolanrewaju/visdrone2019-det/dataset/4

@@ -1,0 +1,4 @@
+[ZoneTransfer]
+ZoneId=3
+ReferrerUrl=https://claude.ai/chat/cb52678d-4f57-4c96-a02b-0b3867b73c81
+HostUrl=https://claude.ai/api/organizations/a74d0c75-a3a4-4a6e-aadb-1dacc069c7d6/conversations/cb52678d-4f57-4c96-a02b-0b3867b73c81/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Ffasternet.py

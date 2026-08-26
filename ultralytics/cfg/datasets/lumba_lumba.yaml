@@ -1,0 +1,7 @@
+train: /home/rafy/yolov13/dolphin14k/dataset/images/train2021
+val: /home/rafy/yolov13/dolphin14k/dataset/images/val2021
+
+
+nc: 2
+names: ['dolphin', 'distractor']
+
